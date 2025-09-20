@@ -1,4 +1,5 @@
 local util = require("util")
+local lyaml   = require "lyaml"
 
 ---@class SopsModule
 local M = {}
@@ -119,15 +120,21 @@ M.setup = function(opts)
     callback = function()
         local cwd = vim.fn.getcwd()
         local root_patterns = {".sops.yaml"}
-        local matches = vim.fs.find(root_patterns, { upward = true, stop = cwd })
+        local matches = vim.fs.find(root_patterns, { upward = true, stop = cwd, type = "file", follow = true })
 
         if #matches == 0 then
             return
         end
 
+        -- TODO handle more than 1 match
         local sops_config_path = matches[1]
-        local sops_config_dir = vim.fs.dirname(sops_config_path)
-        local sops_config = table.concat(vim.fn.readfile(sops_config_path), "\n")
+        -- local sops_config_dir = vim.fs.dirname(sops_config_path)
+        local sops_config_text = table.concat(vim.fn.readfile(sops_config_path), "\n")
+        local sops_config = lyaml.load(sops_config_text)
+
+        for i, rule in ipairs(sops_config.creation_rules) do
+            print(i, vim.inspect(rule))
+        end
     end,
   })
 end
