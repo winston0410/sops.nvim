@@ -117,6 +117,17 @@ M.setup = function(opts)
   }, {
     group = main_au_group,
     callback = function()
+        local cwd = vim.fn.getcwd()
+        local root_patterns = {".sops.yaml"}
+        local matches = vim.fs.find(root_patterns, { upward = true, stop = cwd })
+
+        if #matches == 0 then
+            return
+        end
+
+        local sops_config_path = matches[1]
+        local sops_config_dir = vim.fs.dirname(sops_config_path)
+        local sops_config = table.concat(vim.fn.readfile(sops_config_path), "\n")
     end,
   })
 end
