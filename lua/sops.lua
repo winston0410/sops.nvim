@@ -23,20 +23,7 @@ local function sops_decrypt_buffer(bufnr)
 
         local decrypted_lines = vim.fn.split(out.stdout, "\n", false)
 
-        -- Make this buffer writable only through our auto command
-        -- vim.api.nvim_set_option_value("buftype", "acwrite", { buf = bufnr })
-
-        -- Swap the buffer contents with the decrypted contents
         vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, decrypted_lines)
-
-        -- Clear the undo history
-        local old_undo_levels = vim.api.nvim_get_option_value("undolevels", { buf = bufnr })
-        vim.api.nvim_set_option_value("undolevels", -1, { buf = bufnr })
-        vim.cmd('exe "normal a \\<BS>\\<Esc>"')
-        vim.api.nvim_set_option_value("undolevels", old_undo_levels, { buf = bufnr })
-
-        -- Mark the file as not modified
-        vim.api.nvim_set_option_value("modified", false, { buf = bufnr })
 
         -- Run BufReadPost autocmds since the buffer contents have changed
         vim.api.nvim_exec_autocmds("BufReadPost", {
@@ -76,7 +63,7 @@ local function sops_encrypt_buffer(bufnr)
     return
   end
 
-  vim.system({ "sops", "edit", path }, {
+  vim.system({ "sops", "encrypt", path }, {
     cwd = cwd,
     env = {
       SOPS_EDITOR = editor_script,
@@ -92,8 +79,7 @@ local function sops_encrypt_buffer(bufnr)
         return
       end
 
-      -- Mark the file as not modified
-      vim.api.nvim_set_option_value("modified", false, { buf = bufnr })
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, vim.split(out.stdout, "\n", {plain=true}))
 
       -- Run BufReadPost autocmds since the buffer contents have changed
       vim.api.nvim_exec_autocmds("BufReadPost", {
