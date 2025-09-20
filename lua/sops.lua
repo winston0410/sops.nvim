@@ -5,6 +5,7 @@ local lyaml   = require "lyaml"
 local M = {}
 
 ---@param bufnr number
+---@return string
 local function sops_decrypt_buffer(bufnr)
   local path = vim.api.nvim_buf_get_name(bufnr)
   local cwd = vim.fs.dirname(path)
@@ -36,6 +37,7 @@ local function sops_decrypt_buffer(bufnr)
 end
 
 ---@param bufnr number
+---@return string
 local function sops_encrypt_buffer(bufnr)
   local path = vim.api.nvim_buf_get_name(bufnr)
   local cwd = vim.fs.dirname(path)
