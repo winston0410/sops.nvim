@@ -79,7 +79,7 @@ local function sops_encrypt_buffer(bufnr)
         return
       end
 
-      vim.api.nvim_buf_set_lines(0, 0, -1, false, vim.split(out.stdout, "\n", {plain=true}))
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, vim.split(out.stdout, "\n", { plain = true }))
 
       -- Run BufReadPost autocmds since the buffer contents have changed
       vim.api.nvim_exec_autocmds("BufReadPost", {
@@ -105,6 +105,19 @@ M.setup = function(opts)
     sops_encrypt_buffer(bufnr)
   end, {
     desc = "Encrypt the current file using SOPS",
+  })
+
+  local main_au_group = vim.api.nvim_create_augroup("sops.nvim", { clear = true })
+
+  vim.api.nvim_create_autocmd({
+    -- use BufWinEnter so it would fire when session was restored. This autocmd will be running more than once
+    "BufWinEnter",
+    "BufReadPost",
+    "FileReadPost",
+  }, {
+    group = main_au_group,
+    callback = function()
+    end,
   })
 end
 
