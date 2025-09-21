@@ -5,7 +5,8 @@ local lyaml = require("lyaml")
 local M = {}
 
 ---@param bufnr number
-local function sops_decrypt_buffer(bufnr)
+---@param is_autocmd boolean Enable acwrite for encrypting again with autocmds
+local function sops_decrypt_buffer(bufnr, is_autocmd)
   local path = vim.api.nvim_buf_get_name(bufnr)
   local cwd = vim.fs.dirname(path)
 
@@ -24,6 +25,10 @@ local function sops_decrypt_buffer(bufnr)
 
         local decrypted_lines = vim.fn.split(out.stdout, "\n", false)
 
+        if is_autocmd then
+            vim.api.nvim_set_option_value("buftype", "acwrite", { buf = bufnr })
+        end
+
         vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, decrypted_lines)
 
         -- Run BufReadPost autocmds since the buffer contents have changed
@@ -36,7 +41,8 @@ local function sops_decrypt_buffer(bufnr)
 end
 
 ---@param bufnr number
-local function sops_encrypt_buffer(bufnr)
+---@param is_autocmd boolean Run this function for autocmd
+local function sops_encrypt_buffer(bufnr, is_autocmd)
   local path = vim.api.nvim_buf_get_name(bufnr)
   local cwd = vim.fs.dirname(path)
 
@@ -64,7 +70,13 @@ local function sops_encrypt_buffer(bufnr)
     return
   end
 
-  vim.system({ "sops", "encrypt", path }, {
+  local cmd = {"sops", "encrypt", path}
+
+  if is_autocmd then
+    cmd = {"sops", "edit", path}
+  end
+
+  vim.system(cmd, {
     cwd = cwd,
     env = {
       SOPS_EDITOR = editor_script,
@@ -80,7 +92,9 @@ local function sops_encrypt_buffer(bufnr)
         return
       end
 
-      vim.api.nvim_buf_set_lines(0, 0, -1, false, vim.split(out.stdout, "\n", { plain = true }))
+      if is_autocmd then
+          vim.api.nvim_buf_set_lines(0, 0, -1, false, vim.split(out.stdout, "\n", { plain = true }))
+      end
 
       -- Run BufReadPost autocmds since the buffer contents have changed
       vim.api.nvim_exec_autocmds("BufReadPost", {
@@ -90,20 +104,32 @@ local function sops_encrypt_buffer(bufnr)
   end)
 end
 
+---@return boolean
+local is_auto_transform_enabled = function()
+  if vim.b.sops_auto_transform ~= nil then
+    return vim.b.sops_auto_transform
+  end
+  return vim.g.sops_auto_transform == true
+end
+
 ---@param opts table
 M.setup = function(opts)
   opts = opts or {}
+  -- vim.b.sops_auto_transform = false
+  -- vim.g.sops_auto_transform = false
+  vim.b.sops_auto_transform = true
+  vim.g.sops_auto_transform = true
 
   vim.api.nvim_create_user_command("SopsDecrypt", function()
     local bufnr = vim.api.nvim_get_current_buf()
-    sops_decrypt_buffer(bufnr)
+    sops_decrypt_buffer(bufnr, false)
   end, {
     desc = "Decrypt the current file using SOPS",
   })
 
   vim.api.nvim_create_user_command("SopsEncrypt", function()
     local bufnr = vim.api.nvim_get_current_buf()
-    sops_encrypt_buffer(bufnr)
+    sops_encrypt_buffer(bufnr, false)
   end, {
     desc = "Encrypt the current file using SOPS",
   })
@@ -126,34 +152,18 @@ M.setup = function(opts)
       vim.api.nvim_create_autocmd("BufWriteCmd", {
         buffer = ev.buf,
         group = buf_au_group,
-        callback = function(ev)
-          if vim.b.sops_auto_transform ~= nil and not vim.b.sops_auto_transform then
+        callback = function()
+          if not is_auto_transform_enabled() then
             return
           end
-          if vim.g.sops_auto_transform ~= nil and not vim.g.sops_auto_transform then
-            return
-          end
-          -- TODO enable the autoencrypt here
-
-          -- local cwd = vim.fn.getcwd()
-          -- local root_patterns = { ".sops.yaml" }
-          -- local matches = vim.fs.find(root_patterns, { upward = true, stop = cwd, type = "file", follow = true })
-          --
-          -- if #matches == 0 then
-          --   return
-          -- end
-          --
-          -- -- TODO handle more than 1 match
-          -- local sops_config_path = matches[1]
-          -- -- local sops_config_dir = vim.fs.dirname(sops_config_path)
-          -- local sops_config_text = table.concat(vim.fn.readfile(sops_config_path), "\n")
-          -- local sops_config = lyaml.load(sops_config_text)
-          --
-          -- -- for i, rule in ipairs(sops_config.creation_rules) do
-          -- --     print(i, vim.inspect(rule))
-          -- -- end
+          sops_encrypt_buffer(ev.buf, true)
         end,
       })
+      if not is_auto_transform_enabled() then
+        return
+      end
+
+      sops_decrypt_buffer(ev.buf, true)
     end,
   })
 end
