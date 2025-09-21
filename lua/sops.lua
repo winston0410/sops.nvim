@@ -1,5 +1,4 @@
 local util = require("util")
-local lyaml = require("lyaml")
 
 ---@class SopsModule
 local M = {}
