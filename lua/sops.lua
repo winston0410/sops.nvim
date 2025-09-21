@@ -5,7 +5,6 @@ local lyaml = require("lyaml")
 local M = {}
 
 ---@param bufnr number
----@return string
 local function sops_decrypt_buffer(bufnr)
   local path = vim.api.nvim_buf_get_name(bufnr)
   local cwd = vim.fs.dirname(path)
@@ -37,7 +36,6 @@ local function sops_decrypt_buffer(bufnr)
 end
 
 ---@param bufnr number
----@return string
 local function sops_encrypt_buffer(bufnr)
   local path = vim.api.nvim_buf_get_name(bufnr)
   local cwd = vim.fs.dirname(path)
@@ -109,7 +107,6 @@ M.setup = function(opts)
   end, {
     desc = "Encrypt the current file using SOPS",
   })
-
   local main_au_group = vim.api.nvim_create_augroup("sops.nvim", { clear = true })
 
   vim.api.nvim_create_autocmd({
@@ -124,23 +121,39 @@ M.setup = function(opts)
         return
       end
 
-      local cwd = vim.fn.getcwd()
-      local root_patterns = { ".sops.yaml" }
-      local matches = vim.fs.find(root_patterns, { upward = true, stop = cwd, type = "file", follow = true })
+      local buf_au_group = vim.api.nvim_create_augroup("sops.nvim_" .. ev.buf, { clear = true })
 
-      if #matches == 0 then
-        return
-      end
+      vim.api.nvim_create_autocmd("BufWriteCmd", {
+        buffer = ev.buf,
+        group = buf_au_group,
+        callback = function(ev)
+          if vim.b.sops_auto_transform ~= nil and not vim.b.sops_auto_transform then
+            return
+          end
+          if vim.g.sops_auto_transform ~= nil and not vim.g.sops_auto_transform then
+            return
+          end
+          -- TODO enable the autoencrypt here
 
-      -- TODO handle more than 1 match
-      local sops_config_path = matches[1]
-      -- local sops_config_dir = vim.fs.dirname(sops_config_path)
-      local sops_config_text = table.concat(vim.fn.readfile(sops_config_path), "\n")
-      local sops_config = lyaml.load(sops_config_text)
-
-      -- for i, rule in ipairs(sops_config.creation_rules) do
-      --     print(i, vim.inspect(rule))
-      -- end
+          -- local cwd = vim.fn.getcwd()
+          -- local root_patterns = { ".sops.yaml" }
+          -- local matches = vim.fs.find(root_patterns, { upward = true, stop = cwd, type = "file", follow = true })
+          --
+          -- if #matches == 0 then
+          --   return
+          -- end
+          --
+          -- -- TODO handle more than 1 match
+          -- local sops_config_path = matches[1]
+          -- -- local sops_config_dir = vim.fs.dirname(sops_config_path)
+          -- local sops_config_text = table.concat(vim.fn.readfile(sops_config_path), "\n")
+          -- local sops_config = lyaml.load(sops_config_text)
+          --
+          -- -- for i, rule in ipairs(sops_config.creation_rules) do
+          -- --     print(i, vim.inspect(rule))
+          -- -- end
+        end,
+      })
     end,
   })
 end
