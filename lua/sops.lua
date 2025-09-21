@@ -31,7 +31,9 @@ local function sops_decrypt_buffer(bufnr, is_autocmd)
 
         vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, decrypted_lines)
 
-        vim.api.nvim_set_option_value("modified", false, { buf = bufnr })
+        if is_autocmd then
+            vim.api.nvim_set_option_value("modified", false, { buf = bufnr })
+        end
 
         -- Run BufReadPost autocmds since the buffer contents have changed
         vim.api.nvim_exec_autocmds("BufReadPost", {
